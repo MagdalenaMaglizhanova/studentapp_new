@@ -16,57 +16,62 @@ if "classified" not in st.session_state:
 st.title("Ученик-Фирма Приложение")
 
 # --- Импортиране на фирми от Excel ---
-st.header("Импортиране на фирми от Excel файл (.xlsx)")
-firm_file = st.file_uploader("Качи файл с фирми", type=["xlsx"], key="firm_file_uploader")
+st.header("Импортиране на фирми от Excel")
+firms_file = st.file_uploader("Качи Excel файл с фирми (2 колони: 'Име', 'Квота')", type=["xlsx"], key="firms_upload")
 
-if firm_file:
+if firms_file:
     try:
-        df_firms = pd.read_excel(firm_file)
-        st.write("Колони в Excel файла:", list(df_firms.columns))
-
-        required_firm_cols = ["Име", "Квота"]
-        missing_cols = [col for col in required_firm_cols if col not in df_firms.columns]
-        if missing_cols:
-            st.error(f"Файлът трябва да съдържа колоните: {', '.join(required_firm_cols)}.")
-        else:
+        df_firms = pd.read_excel(firms_file)
+        if "Име" in df_firms.columns and "Квота" in df_firms.columns:
             imported_firms = []
             for _, row in df_firms.iterrows():
                 name = str(row["Име"]).strip()
-                try:
-                    quota = int(row["Квота"])
-                    if name and quota > 0:
-                        imported_firms.append({"name": name, "quota": quota})
-                except ValueError:
-                    continue
-
-            if imported_firms:
-                st.session_state.firms.extend(imported_firms)
-                st.success(f"Импортирани успешно {len(imported_firms)} фирми.")
-            else:
-                st.warning("Не бяха намерени валидни записи.")
+                quota = int(row["Квота"])
+                if name and quota > 0:
+                    imported_firms.append({"name": name, "quota": quota})
+            existing_names = {firm['name'] for firm in st.session_state.firms}
+            new_unique_firms = [firm for firm in imported_firms if firm['name'] not in existing_names]
+            st.session_state.firms.extend(new_unique_firms)
+            st.success(f"Импортирани успешно {len(new_unique_firms)} нови фирми.")
+        else:
+            st.error("Файлът трябва да съдържа колони 'Име' и 'Квота'.")
     except Exception as e:
-        st.error(f"Грешка при зареждане на фирмите: {e}")
+        st.error(f"Грешка при импортиране: {e}")
 
-# --- Добавяне на фирма ---
-st.header("Добави фирма")
+# --- Добавяне на фирма ръчно ---
+st.header("Добави фирма ръчно")
 firm_name = st.text_input("Име на фирмата", key="firm_name_input")
 firm_quota = st.number_input("Квота", min_value=1, step=1, key="firm_quota_input")
 
-if st.button("Добави фирма"):
-    if firm_name.strip() and firm_quota > 0:
-        st.session_state.firms.append({"name": firm_name.strip(), "quota": firm_quota})
-        st.success(f"Фирма '{firm_name.strip()}' добавена успешно!")
-    else:
-        st.error("Моля, въведете име на фирма и валидна квота.")
+col1, col2 = st.columns(2)
+with col1:
+    if st.button("Добави фирма"):
+        if firm_name.strip() and firm_quota > 0:
+            if not any(f['name'] == firm_name.strip() for f in st.session_state.firms):
+                st.session_state.firms.append({"name": firm_name.strip(), "quota": firm_quota})
+                st.success(f"Фирма '{firm_name.strip()}' добавена успешно!")
+            else:
+                st.warning("Тази фирма вече е добавена.")
+        else:
+            st.error("Моля, въведете име на фирма и валидна квота.")
 
+with col2:
+    if st.button("🗑 Изчисти всички фирми"):
+        st.session_state.firms = []
+        st.success("Всички фирми са изтрити.")
+
+# --- Покажи уникални фирми ---
 if st.session_state.firms:
     st.subheader("Добавени фирми")
+    unique_firms = {}
     for firm in st.session_state.firms:
-        st.write(f"{firm['name']} - Квота: {firm['quota']}")
+        unique_firms[firm["name"]] = firm["quota"]
+    for name, quota in unique_firms.items():
+        st.write(f"{name} - Квота: {quota}")
 
 st.markdown("---")
 
-# --- Импортиране на ученици от Excel ---
+# --- Импортиране на ученици ---
 st.header("Импортиране на ученици от Excel")
 uploaded_file = st.file_uploader("Качи Excel файл (.xlsx)", type=["xlsx"])
 
@@ -119,16 +124,23 @@ if st.session_state.firms:
 else:
     st.info("Моля, добавете поне една фирма, за да можете да избирате фирми за учениците.")
 
-if st.button("Добави ученик"):
-    if student_name.strip() and student_points >= 0 and student_choices:
-        st.session_state.students.append({
-            "name": student_name.strip(),
-            "points": student_points,
-            "choices": student_choices
-        })
-        st.success(f"Ученикът '{student_name.strip()}' добавен успешно!")
-    else:
-        st.error("Моля, въведете име, точки и изберете фирми за всички желания.")
+col3, col4 = st.columns(2)
+with col3:
+    if st.button("Добави ученик"):
+        if student_name.strip() and student_points >= 0 and student_choices:
+            st.session_state.students.append({
+                "name": student_name.strip(),
+                "points": student_points,
+                "choices": student_choices
+            })
+            st.success(f"Ученикът '{student_name.strip()}' добавен успешно!")
+        else:
+            st.error("Моля, въведете име, точки и изберете фирми за всички желания.")
+
+with col4:
+    if st.button("🗑 Изчисти всички ученици"):
+        st.session_state.students = []
+        st.success("Всички ученици са изтрити.")
 
 # --- Списък на учениците ---
 if st.session_state.students:
@@ -177,14 +189,12 @@ if st.button("Класирай учениците"):
         labels = list(firm_distribution.keys())
         sizes = list(firm_distribution.values())
 
-        # Кръгова диаграма
         st.markdown("**Кръгова диаграма: Разпределение по фирми**")
         fig1, ax1 = plt.subplots()
         ax1.pie(sizes, labels=labels, autopct="%1.1f%%", startangle=90)
         ax1.axis("equal")
         st.pyplot(fig1)
 
-        # Стълбовидна диаграма
         st.markdown("**Стълбовидна диаграма: Брой ученици по фирма**")
         fig2, ax2 = plt.subplots()
         ax2.bar(labels, sizes, color="skyblue")
@@ -194,7 +204,6 @@ if st.button("Класирай учениците"):
         plt.xticks(rotation=45)
         st.pyplot(fig2)
 
-        # Линейна диаграма
         st.markdown("**Линейна диаграма: Точки на учениците**")
         fig3, ax3 = plt.subplots()
         ax3.plot([c["Име"] for c in classified], [c["Точки"] for c in classified], marker="o")
