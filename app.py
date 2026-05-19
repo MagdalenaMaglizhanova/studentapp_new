@@ -116,11 +116,19 @@ student_points = st.number_input("Точки", min_value=0, step=1, key="student
 
 if st.session_state.firms:
     student_choices = []
-    for i in range(6):
-        choice = st.selectbox(f"Избери фирма - предпочитание {i+1}",
-                              options=[firm["name"] for firm in st.session_state.firms],
-                              key=f"choice_{i}")
+
+    # Броят желания = броят фирми
+    number_of_choices = len(st.session_state.firms)
+
+    for i in range(number_of_choices):
+        choice = st.selectbox(
+            f"Избери фирма - предпочитание {i+1}",
+            options=[firm["name"] for firm in st.session_state.firms],
+            key=f"choice_{i}"
+        )
+
         student_choices.append(choice)
+
 else:
     st.info("Моля, добавете поне една фирма, за да можете да избирате фирми за учениците.")
 
